@@ -1,11 +1,14 @@
 #!/bin/bash
 
 KERNEL_VERSION_HEAD=6
-KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.10
+KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.12
 KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
 
 BUSYBOX_VERSION=1.36.1
 BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
+
+BASH_VERSION=5.2
+BASH_ARCHIVE=bash-$BASH_VERSION.tar.gz
 
 PACMAN_VERSION=6.0.2
 PACMAN_ARCHIVE=pacman-$PACMAN_VERSION.tar.xz
@@ -18,6 +21,10 @@ if [ ! -f $BUSYBOX_ARCHIVE ]; then
     wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
 fi
 
+if [ ! -f $BASH_ARCHIVE ]; then
+    wget https://ftp.gnu.org/gnu/bash/$BASH_ARCHIVE
+fi
+
 if [ ! -f $PACMAN_ARCHIVE ]; then
     wget https://sources.archlinux.org/other/pacman/$PACMAN_ARCHIVE
 fi
@@ -25,7 +32,7 @@ fi
 if [ "$1" = "kernel" ]; then
     mkdir -p src
     cd src
-        rm -f -r linux-$KERNEL_VERSION
+        rm -f -r linux*
         tar -xf ../$KERNEL_ARCHIVE
         cd linux-$KERNEL_VERSION
             make defconfig
@@ -39,7 +46,7 @@ fi
 if [ "$1" = "busybox" ]; then
     mkdir -p src
     cd src
-        rm -f -r busybox-$BUSYBOX_VERSION busybox
+        rm -f -r busybox*
         tar -xf ../$BUSYBOX_ARCHIVE
         cd busybox-$BUSYBOX_VERSION
             make defconfig
@@ -50,10 +57,23 @@ if [ "$1" = "busybox" ]; then
     cd ..
 fi
 
+if [ "$1" = "bash" ]; then
+    mkdir -p src
+    cd src
+        rm -f -r bash*
+        tar -xf ../$BASH_ARCHIVE
+        cd bash-$BASH_VERSION
+            ./configure --enable-static-link
+            make -j8 || exit
+            cp bash ../
+        cd ..
+    cd ..
+fi
+
 if [ "$1" = "pacman" ]; then
     mkdir -p src
     cd src
-        rm -f -r pacman-$PACMAN_VERSION pacman pacman.conf
+        rm -f -r pacman*
         tar -xf ../$PACMAN_ARCHIVE
         cd pacman-$PACMAN_VERSION
             meson build

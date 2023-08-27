@@ -16,16 +16,9 @@ cd initrd
         done
     cd ..
 
-    #cp ../SSoftware/bin/* bin/
+    cp ../SBinary/bin/* bin/
 
-    echo "#!/bin/sh" > init
-    echo "mount -t sysfs sysfs /sys" >> init
-    echo "mount -t proc proc /proc" >> init
-    echo "mount -t devtmpfs udev /dev" >> init
-    echo "sysctl -w kernel.printk='2 4 1 7'" >> init
-    echo "pacman" >> init
-    echo "/bin/sh" >> init
-    echo "poweroff" >> init
+    mv bin/init .
 
     file $(find .) | sort
     find . | cpio -o -H newc > ../initrd.img
