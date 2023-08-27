@@ -1,0 +1,32 @@
+#!/bin/bash
+
+mkdir -p initrd
+cd initrd
+    mkdir -p bin etc sys proc dev lib64 /usr/lib
+
+    cp /lib64/ld-linux-x86-64.so.2 lib64
+
+    cp ../src/busybox bin
+    cp ../src/pacman bin
+    cp ../src/pacman.conf etc
+    
+    cd bin
+        for cmd in $(./busybox --list); do
+            ln -s /bin/busybox $cmd || exit
+        done
+    cd ..
+
+    #cp ../SSoftware/bin/* bin/
+
+    echo "#!/bin/sh" > init
+    echo "mount -t sysfs sysfs /sys" >> init
+    echo "mount -t proc proc /proc" >> init
+    echo "mount -t devtmpfs udev /dev" >> init
+    echo "sysctl -w kernel.printk='2 4 1 7'" >> init
+    echo "pacman" >> init
+    echo "/bin/sh" >> init
+    echo "poweroff" >> init
+
+    file $(find .) | sort
+    find . | cpio -o -H newc > ../initrd.img
+cd ..
