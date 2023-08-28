@@ -29,7 +29,7 @@ if [ "$1" = "kernel" ]; then
         tar -xf ../$KERNEL_ARCHIVE
         cd linux-$KERNEL_VERSION
             make defconfig
-            if [ "$1" = "kernel" ]; then
+            if [ "$2" = "menu" ]; then
                 make menuconfig
             fi
             make -j8 || exit
