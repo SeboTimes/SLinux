@@ -1,8 +1,10 @@
 #!/bin/bash
 
 clear
-rm -f -r *.tar.* src bzImage
+rm -f -r src bzImage
+if [ "$1" = "redownload" ]; then
+    rm -f *.tar.*
+fi
 ./SLinux kernel
 ./SLinux bash
 ./SLinux busybox
-./SLinux dpkg
