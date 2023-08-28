@@ -13,8 +13,7 @@ cd initrd
         done
     cd ..
 
-    rm bin/init
-    cp ../SBinary/bin/* bin/
+    cp -f ../SBinary/bin/* bin/
     mv bin/init .
 
     file $(find .) | sort
