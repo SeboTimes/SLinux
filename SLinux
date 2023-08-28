@@ -4,29 +4,22 @@ KERNEL_VERSION_HEAD=6
 KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.12
 KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
 
-BUSYBOX_VERSION=1.36.1
-BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
-
 BASH_VERSION=5.2
 BASH_ARCHIVE=bash-$BASH_VERSION.tar.gz
 
-PACMAN_VERSION=6.0.2
-PACMAN_ARCHIVE=pacman-$PACMAN_VERSION.tar.xz
+BUSYBOX_VERSION=1.36.1
+BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
 
 if [ ! -f $KERNEL_ARCHIVE ]; then
     wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
-fi
-
-if [ ! -f $BUSYBOX_ARCHIVE ]; then
-    wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
 fi
 
 if [ ! -f $BASH_ARCHIVE ]; then
     wget https://ftp.gnu.org/gnu/bash/$BASH_ARCHIVE
 fi
 
-if [ ! -f $PACMAN_ARCHIVE ]; then
-    wget https://sources.archlinux.org/other/pacman/$PACMAN_ARCHIVE
+if [ ! -f $BUSYBOX_ARCHIVE ]; then
+    wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
 fi
 
 if [ "$1" = "kernel" ]; then
@@ -36,9 +29,24 @@ if [ "$1" = "kernel" ]; then
         tar -xf ../$KERNEL_ARCHIVE
         cd linux-$KERNEL_VERSION
             make defconfig
-            make menuconfig
+            if [ "$1" = "kernel" ]; then
+                make menuconfig
+            fi
             make -j8 || exit
             cp arch/x86/boot/bzImage ../../
+        cd ..
+    cd ..
+fi
+
+if [ "$1" = "bash" ]; then
+    mkdir -p src
+    cd src
+        rm -f -r bash*
+        tar -xf ../$BASH_ARCHIVE
+        cd bash-$BASH_VERSION
+            ./configure --enable-static-link
+            make -j8 || exit
+            cp bash ../
         cd ..
     cd ..
 fi
@@ -57,29 +65,12 @@ if [ "$1" = "busybox" ]; then
     cd ..
 fi
 
-if [ "$1" = "bash" ]; then
+if [ "$1" = "dpkg" ]; then
     mkdir -p src
     cd src
-        rm -f -r bash*
-        tar -xf ../$BASH_ARCHIVE
-        cd bash-$BASH_VERSION
-            ./configure --enable-static-link
-            make -j8 || exit
-            cp bash ../
-        cd ..
-    cd ..
-fi
-
-if [ "$1" = "pacman" ]; then
-    mkdir -p src
-    cd src
-        rm -f -r pacman*
-        tar -xf ../$PACMAN_ARCHIVE
-        cd pacman-$PACMAN_VERSION
-            meson build
-            ninja -C build
-            cp build/pacman ..
-            cp build/pacman.conf ..
+        rm -f -r dpkg*
+        git clone https://git.dpkg.org/git/dpkg/dpkg.git
+        cd dpkg
         cd ..
     cd ..
 fi
