@@ -1,7 +1,7 @@
 global _start
 
 section .data
-    shell db "/bin/bash"
+    shell db "/bin/sh"
 
 section .text
 
