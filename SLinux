@@ -60,6 +60,10 @@ cd SBinary
             echo "Compiling $(basename $script)"
             g++ $script -o $(basename $script .cpp) -static || exit
         done
+        for script in $(find .. -name *.go); do
+            echo "Compiling $(basename $script)"
+            go build $script || exit
+        done
     cd ..
 cd ..
 
