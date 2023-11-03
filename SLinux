@@ -69,3 +69,5 @@ cd ..
 
 rm -f -r initrd initrd.img
 ./makeInitrd
+
+# Test
