@@ -1,0 +1,91 @@
+#!/bin/bash
+
+KERNEL_VERSION_HEAD=6
+KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.12
+KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
+
+BUSYBOX_VERSION=1.36.1
+BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
+
+if [ "$1" = "fresh" ] || [ "$2" = "fresh" ]; then
+    rm -r archives
+fi
+
+mkdir -p archives
+cd archives
+    if [ ! -f $KERNEL_ARCHIVE ]; then
+        wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
+    fi
+
+    if [ ! -f $BUSYBOX_ARCHIVE ]; then
+        wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
+    fi
+cd ..
+
+if [ "$1" = "base" ] || [ "$2" = "base" ]; then
+    rm -f -r src
+    mkdir -p src
+    cd src
+        tar -xf ../archives/$KERNEL_ARCHIVE
+        tar -xf ../archives/$BUSYBOX_ARCHIVE
+        cd linux-$KERNEL_VERSION
+            make defconfig
+            if [ "$2" = "menu" ]; then
+                make menuconfig
+            fi
+            make -j8 || exit
+            cp arch/x86/boot/bzImage ../../
+        cd ..
+        cd busybox-$BUSYBOX_VERSION
+            make defconfig
+            if [ "$2" = "menu" ]; then
+                make menuconfig
+            fi
+            ../../makeStatic
+            make -j8 || exit
+            cp busybox ../
+        cd ..
+    cd ..
+fi
+
+mkdir -p SBinary
+cd SBinary
+    rm -f -r bin
+    mkdir -p bin
+    cd bin
+        for script in $(find .. -name *.go); do
+            echo "Compiling $(basename $script)"
+            go build $script || exit
+        done
+    cd ..
+cd ..
+
+rm -f -r initrd*
+mkdir -p initrd
+cd initrd
+    mkdir -p bin dev
+
+    cp ../src/busybox bin
+    #cd bin
+    #    for cmd in $(./busybox --list); do
+    #        ln -s /bin/busybox $cmd || exit
+    #    done
+    #cd ..
+
+    touch dev/tty
+    touch dev/tty1
+    touch dev/tty2
+    touch dev/tty3
+    touch dev/tty4
+
+    cp -f ../SBinary/bin/* bin
+    mv bin/init .
+
+    file $(find .) | sort
+    find . | cpio -o -H newc > ../initrd.img
+cd ..
+
+if [ "$1" = "run" ] || [ "$2" = "run" ]; then
+    unset GTK_PATH
+    qemu-system-x86_64 -kernel bzImage -initrd initrd.img #-append "console=ttyS0" -nographic
+fi

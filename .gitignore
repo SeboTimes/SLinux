@@ -1,0 +1,7 @@
+SBinary/bin/
+.vscode/
+initrd/
+src/
+bzImage
+initrd.img
+*.tar.*
