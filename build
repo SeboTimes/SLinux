@@ -4,21 +4,21 @@ KERNEL_VERSION_HEAD=6
 KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.12
 KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
 
-BUSYBOX_VERSION=1.36.1
-BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
+BASH_VERSION=5.2
+BASH_ARCHIVE=bash-$BASH_VERSION.tar.gz
 
-if [ "$1" = "fresh" ] || [ "$2" = "fresh" ]; then
-    rm -r archives
+if [ "$1" = "download" ] || [ "$2" = "download" ]; then
+    rm -r downloads
 fi
 
-mkdir -p archives
-cd archives
+mkdir -p downloads
+cd downloads
     if [ ! -f $KERNEL_ARCHIVE ]; then
         wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
     fi
 
-    if [ ! -f $BUSYBOX_ARCHIVE ]; then
-        wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
+    if [ ! -f $BASH_ARCHIVE ]; then
+        wget https://ftp.gnu.org/gnu/bash/$BASH_ARCHIVE
     fi
 cd ..
 
@@ -26,8 +26,8 @@ if [ "$1" = "base" ] || [ "$2" = "base" ]; then
     rm -f -r src
     mkdir -p src
     cd src
-        tar -xf ../archives/$KERNEL_ARCHIVE
-        tar -xf ../archives/$BUSYBOX_ARCHIVE
+        tar -xf ../downloads/$KERNEL_ARCHIVE
+        tar -xf ../downloads/$BASH_ARCHIVE
         cd linux-$KERNEL_VERSION
             make defconfig
             if [ "$2" = "menu" ]; then
@@ -36,50 +36,44 @@ if [ "$1" = "base" ] || [ "$2" = "base" ]; then
             make -j8 || exit
             cp arch/x86/boot/bzImage ../../
         cd ..
-        cd busybox-$BUSYBOX_VERSION
-            make defconfig
-            if [ "$2" = "menu" ]; then
-                make menuconfig
-            fi
-            ../../makeStatic
+        cd bash-$BASH_VERSION
+            ./configure --enable-static-link
             make -j8 || exit
-            cp busybox ../
+            cp bash ../
         cd ..
     cd ..
 fi
 
-mkdir -p SBinary
-cd SBinary
-    rm -f -r bin
-    mkdir -p bin
-    cd bin
-        for script in $(find .. -name *.go); do
-            echo "Compiling $(basename $script)"
-            go build $script || exit
-        done
-    cd ..
+rm -f -r initrd*
+mkdir -p initrd initrd/bin
+cd initrd/bin
+    for script in $(find ../../SBinary -name *.asm); do
+        nasm -f elf64 $script -o tmp || exit
+        ld tmp -o $(basename $script .asm) || exit
+        rm tmp
+    done
+    for script in $(find ../../SBinary -name *.c); do
+        gcc -static $script -o $(basename $script .c) || exit
+    done
+    for script in $(find ../../SBinary -name *.cpp); do
+        g++ -static $script -o $(basename $script .cpp) || exit
+    done
+    for script in $(find ../../SBinary -name *.go); do
+        go build $script || exit
+    done
 cd ..
 
-rm -f -r initrd*
-mkdir -p initrd
 cd initrd
-    mkdir -p bin dev
-
-    cp ../src/busybox bin
-    #cd bin
-    #    for cmd in $(./busybox --list); do
-    #        ln -s /bin/busybox $cmd || exit
-    #    done
-    #cd ..
+    cp ../src/bash bin
 
     cp -f ../SBinary/bin/* bin
     mv bin/init .
 
-    file $(find .) | sort
+    tree
     find . | cpio -o -H newc > ../initrd.img
 cd ..
 
 if [ "$1" = "run" ] || [ "$2" = "run" ]; then
     unset GTK_PATH
-    qemu-system-x86_64 -kernel bzImage -initrd initrd.img #-append "console=ttyS0" -nographic
+    qemu-system-x86_64 -kernel bzImage -initrd initrd.img -append "quiet"
 fi

@@ -1,7 +1,8 @@
 SBinary/bin/
+downloads/
 .vscode/
 initrd/
 src/
-bzImage
 initrd.img
+bzImage
 *.tar.*
