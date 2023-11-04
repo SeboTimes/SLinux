@@ -72,12 +72,6 @@ cd initrd
     #    done
     #cd ..
 
-    touch dev/tty
-    touch dev/tty1
-    touch dev/tty2
-    touch dev/tty3
-    touch dev/tty4
-
     cp -f ../SBinary/bin/* bin
     mv bin/init .
 
