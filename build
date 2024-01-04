@@ -56,11 +56,6 @@ cd src
 cd ..
 
 cd initrd/bin
-    for script in $(find ../../SBinary -name *.asm); do
-        nasm -f elf64 $script -o tmp || exit
-        ld tmp -o $(basename $script .asm) || exit
-        rm tmp
-    done
     for script in $(find ../../SBinary -name *.c); do
         gcc -static $script -o $(basename $script .c) || exit
     done
