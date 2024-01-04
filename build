@@ -1,33 +1,34 @@
 #!/bin/bash
 
 KERNEL_VERSION_HEAD=6
-KERNEL_VERSION=$KERNEL_VERSION_HEAD.4.12
+KERNEL_VERSION=$KERNEL_VERSION_HEAD.6.9
 KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
 
 BASH_VERSION=5.2
 BASH_ARCHIVE=bash-$BASH_VERSION.tar.gz
 
-if [ "$1" = "download" ] || [ "$2" = "download" ]; then
-    rm -r downloads
+rm -f -r initrd*
+mkdir -p initrd initrd/bin
+
+if [ ! -f $KERNEL_ARCHIVE ]; then
+    wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
 fi
 
-mkdir -p downloads
-cd downloads
-    if [ ! -f $KERNEL_ARCHIVE ]; then
-        wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
-    fi
-
-    if [ ! -f $BASH_ARCHIVE ]; then
-        wget https://ftp.gnu.org/gnu/bash/$BASH_ARCHIVE
-    fi
+mkdir -p archives
+cd archives
+    for url in $(cat ../packages.txt); do
+        if [ ! -f $(basename $url) ]; then
+            wget $url
+        fi
+    done
 cd ..
 
-if [ "$1" = "base" ] || [ "$2" = "base" ]; then
-    rm -f -r src
-    mkdir -p src
-    cd src
-        tar -xf ../downloads/$KERNEL_ARCHIVE
-        tar -xf ../downloads/$BASH_ARCHIVE
+mkdir -p src
+cd src
+    if [ "$1" = "kernel" ] || [ "$2" = "kernel" ]; then
+        rm -f -r linux*
+        tar -xf ../$KERNEL_ARCHIVE
+        
         cd linux-$KERNEL_VERSION
             make defconfig
             if [ "$2" = "menu" ]; then
@@ -36,16 +37,24 @@ if [ "$1" = "base" ] || [ "$2" = "base" ]; then
             make -j8 || exit
             cp arch/x86/boot/bzImage ../../
         cd ..
-        cd bash-$BASH_VERSION
-            ./configure --enable-static-link
-            make -j8 || exit
-            cp bash ../
-        cd ..
-    cd ..
-fi
+    fi
 
-rm -f -r initrd*
-mkdir -p initrd initrd/bin
+    if [ "$1" = "packages" ] || [ "$2" = "packages" ]; then
+        for archive in $(ls -1 ../archives); do
+            wget $url
+
+            #rm -f -r $($archive%-)*        !!! Somethings very off in this package part and please don't run it, it deleted all my files in my home
+            tar -xf $archive
+            cd $($archive%.)
+                echo in
+                #./configure --prefix=../../initrd
+                #make -j8 || exit
+                #make install
+            cd ..
+        done
+    fi
+cd ..
+
 cd initrd/bin
     for script in $(find ../../SBinary -name *.asm); do
         nasm -f elf64 $script -o tmp || exit
@@ -58,22 +67,14 @@ cd initrd/bin
     for script in $(find ../../SBinary -name *.cpp); do
         g++ -static $script -o $(basename $script .cpp) || exit
     done
-    for script in $(find ../../SBinary -name *.go); do
-        go build $script || exit
-    done
-cd ..
+cd ../..
 
 cd initrd
-    cp ../src/bash bin
-
-    cp -f ../SBinary/bin/* bin
     mv bin/init .
-
-    tree
     find . | cpio -o -H newc > ../initrd.img
 cd ..
 
 if [ "$1" = "run" ] || [ "$2" = "run" ]; then
     unset GTK_PATH
-    qemu-system-x86_64 -kernel bzImage -initrd initrd.img -append "quiet"
+    qemu-system-x86_64 -kernel bzImage -initrd initrd.img -serial stdio -append "console=ttyS0"
 fi
