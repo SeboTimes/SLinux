@@ -1,75 +1,74 @@
 #!/bin/bash
 
+JOBS=16
+
 KERNEL_VERSION_HEAD=6
-KERNEL_VERSION=$KERNEL_VERSION_HEAD.6.9
+KERNEL_VERSION=$KERNEL_VERSION_HEAD.8.5
 KERNEL_ARCHIVE=linux-$KERNEL_VERSION.tar.xz
 
-BASH_VERSION=5.2
-BASH_ARCHIVE=bash-$BASH_VERSION.tar.gz
+GLIBC_VERSION=2.39
+GLIBC_ARCHIVE=glibc-$GLIBC_VERSION.tar.xz
 
-rm -f -r initrd*
-mkdir -p initrd initrd/bin
+BUSYBOX_VERSION=1.36.1
+BUSYBOX_ARCHIVE=busybox-$BUSYBOX_VERSION.tar.bz2
 
-if [ ! -f $KERNEL_ARCHIVE ]; then
-    wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
-fi
+INIT_PATH=$(pwd)/initrd
+
+rm -rf initrd*
+mkdir -p initrd
 
 mkdir -p archives
 cd archives
-    for url in $(cat ../packages.txt); do
-        if [ ! -f $(basename $url) ]; then
-            wget $url
-        fi
-    done
+    if [ ! -f $KERNEL_ARCHIVE ]; then
+        wget https://mirrors.edge.kernel.org/pub/linux/kernel/v$KERNEL_VERSION_HEAD.x/$KERNEL_ARCHIVE
+    fi
+
+    if [ ! -f $GLIBC_ARCHIVE ]; then
+        wget https://ftp.gnu.org/gnu/glibc/$GLIBC_ARCHIVE
+    fi
+
+    if [ ! -f $BUSYBOX_ARCHIVE ]; then
+        wget https://busybox.net/downloads/$BUSYBOX_ARCHIVE
+    fi
 cd ..
 
 mkdir -p src
 cd src
-    if [ "$1" = "kernel" ] || [ "$2" = "kernel" ]; then
+    if [ "$1" = "kernel" ]; then
         rm -f -r linux*
-        tar -xf ../$KERNEL_ARCHIVE
+        tar -xf ../archives/$KERNEL_ARCHIVE
         
         cd linux-$KERNEL_VERSION
             make defconfig
             if [ "$2" = "menu" ]; then
                 make menuconfig
             fi
-            make -j8 || exit
+            make -j $JOBS || exit
             cp arch/x86/boot/bzImage ../../
         cd ..
     fi
 
-    if [ "$1" = "packages" ] || [ "$2" = "packages" ]; then
-        for archive in $(ls -1 ../archives); do
-            wget $url
+    tar -xf ../archives/$GLIBC_ARCHIVE
+    cd glibc-$GLIBC_VERSION
+        mkdir build
+        cd build
+            ../configure --prefix=$INIT_PATH/usr
+            make -j $JOBS || exit
+            make install
+        cd ..
+    cd ..
 
-            #rm -f -r $($archive%-)*        !!! Somethings very off in this package part and please don't run it, it deleted all my files in my home
-            tar -xf $archive
-            cd $($archive%.)
-                echo in
-                #./configure --prefix=../../initrd
-                #make -j8 || exit
-                #make install
-            cd ..
-        done
-    fi
+    tar -xf ../archives/$BUSYBOX_ARCHIVE
+    cd busybox-$BUSYBOX_VERSION
+        make defconfig
+        make -j $JOBS || exit
+        make install CONFIG_PREFIX=$INIT_PATH
+    cd ..
 cd ..
-
-cd initrd/bin
-    for script in $(find ../../SBinary -name *.c); do
-        gcc -static $script -o $(basename $script .c) || exit
-    done
-    for script in $(find ../../SBinary -name *.cpp); do
-        g++ -static $script -o $(basename $script .cpp) || exit
-    done
-cd ../..
 
 cd initrd
-    mv bin/init .
+    echo "#/bin/sh" > init
+    echo "/bin/sh" >> init
+
     find . | cpio -o -H newc > ../initrd.img
 cd ..
-
-if [ "$1" = "run" ] || [ "$2" = "run" ]; then
-    unset GTK_PATH
-    qemu-system-x86_64 -kernel bzImage -initrd initrd.img -serial stdio -append "console=ttyS0"
-fi
