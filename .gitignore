@@ -1,7 +1,5 @@
 archives/
-.vscode/
-initrd/
 src/
-initrd.img
+
 bzImage
-*.tar.*
+initrd*
